@@ -93,7 +93,7 @@ static int powerup_comet_running = 0;
 static int smartbomb_alive = 0;
 
 const int SND_IGLOO_SIZZLE = SND_SIZZLE;
-
+SDL_Thread *tts_announcer_thread = NULL;
 int user_quit_received;
 
 /* Local (to game.c) 'globals': */
@@ -4007,20 +4007,29 @@ wchar_t* convert_formula_to_sentence(char *formula_string)
 	sentence[0] = L'\0';
 	while(temp != NULL)
 	{
-		if (wcscmp(temp,L"+") == 0)
-			wcscat(sentence,_(L"plus "));
-		else if (wcscmp(temp,L"-") == 0)
-			wcscat(sentence,_(L"minus "));
-		else if (wcscmp(temp,L"÷") == 0)
-			wcscat(sentence,_(L"divided by "));
-		else if (wcscmp(temp,L"x") == 0)
-			wcscat(sentence,_(L"Times "));
+		wchar_t wtemp[100];
+		if (wcscmp(temp,L"+") == 0) {
+			mbstowcs(wtemp, _("plus "), 100);
+			wcscat(sentence, wtemp);
+		}
+		else if (wcscmp(temp,L"-") == 0) {
+			mbstowcs(wtemp, _("minus "), 100);
+			wcscat(sentence, wtemp);
+		}
+		else if (wcscmp(temp,L"÷") == 0) {
+			mbstowcs(wtemp, _("divided by "), 100);
+			wcscat(sentence, wtemp);
+		}
+		else if (wcscmp(temp,L"x") == 0) {
+			mbstowcs(wtemp, _("Times "), 100);
+			wcscat(sentence, wtemp);
+		}
 		else
-			{
-				wcscat(sentence,temp);
-				wcscat(sentence,L" ");
-			}
-			temp = wcstok(NULL,L" ",&ptr);
+		{
+			wcscat(sentence,temp);
+			wcscat(sentence,L" ");
+		}
+		temp = wcstok(NULL,L" ",&ptr);
 	}
 	return sentence;
 }
@@ -4113,8 +4122,8 @@ int tts_announcer(void *unused)
 			 * comets other wise it causes segfault */
 			if (iter != 0)
 			{
-				for (i = 0; i < 3; i++){
-					for(j = 0; j < 3; j++){
+				for (i = 0; i < iter - 1; i++){
+					for(j = 0; j < iter - 1 - i; j++){
 						if (comets[order[j]].y < comets[order[j+1]].y){
 							y_axis = order[j+1];
 							order[j+1] = order[j];
@@ -4123,9 +4132,10 @@ int tts_announcer(void *unused)
 					}
 				}
 				
-				/* Announces only last three comets 
+				/* Announces only last three comets
 				 * to avoid confusion for a listener*/
-				for (i = 0; i < 3 ; i++)
+				int announce_limit = (iter < 3) ? iter : 3;
+				for (i = 0; i < announce_limit ; i++)
 				{
 					if (tts_announcer_switch == 0)
 						goto end;
@@ -4145,6 +4155,10 @@ int tts_announcer(void *unused)
 						T4K_Tts_wait();
 					}
 				}		
+			}
+			else
+			{
+				SDL_Delay(100);
 			}
 		}	
 	}
