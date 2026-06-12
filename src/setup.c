@@ -563,7 +563,8 @@ void handle_command_args(int argc, char* argv[])
                 strcmp(argv[i], "-t") == 0)
         {
             Opts_SetGlobalOpt(USE_TTS, 1);
-            T4K_Tts_init();
+            if (!T4K_Tts_init())
+                fprintf(stderr, "\nWarning: I could not initialize TTS!\n");
         }
 
         else if (strcmp(argv[i], "--notts") == 0 ||

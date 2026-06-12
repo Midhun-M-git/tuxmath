@@ -397,7 +397,7 @@ int RenderTitleScreen(void)
 /* handle titlescreen events (easter egg)
    this function should be called from event loops
    return 1 if events require full redraw */
-int HandleTitleScreenEvents(const SDL_Event* evt)
+int HandleTitleScreenEvents(SDL_Event* evt)
 {
     if (evt->type == SDL_KEYDOWN)
         if (evt->key.keysym.sym == SDLK_F10)
@@ -409,9 +409,9 @@ int HandleTitleScreenEvents(const SDL_Event* evt)
 /* handle a resolution switch. Tux et. al. may need to be resized
    and/or repositioned
    */
-int HandleTitleScreenResSwitch(int new_w, int new_h)
+void HandleTitleScreenResSwitch(int new_w, int new_h)
 {
-    return RenderTitleScreen();
+    RenderTitleScreen();
 }
 
 /* handle all titlescreen blitting

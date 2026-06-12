@@ -6,6 +6,11 @@
 #include "options.h"
 #include "multiplayer.h"
 #include "tuxmath.h"
+#include "draw_utils.h"
+
+#ifdef HAVE_LIBSDL_NET
+#include "network.h"
+#endif
 
 
 void comets_draw_background(SDL_Surface *bkgd, int wave)
@@ -434,7 +439,7 @@ void comets_draw_misc(MC_MathGame *curr_game, int wave,
 
 /* Draw numbers/symbols over the attacker: */
 /* This draws the numbers related to the comets */
-void comets_draw_comet_nums(const comet_type *comet, bool answered, SDL_Color *col)
+void comets_draw_comet_nums(const comet_type *comet, bool answered, const SDL_Color *col)
 {
     if(!comet || !col)
         return;

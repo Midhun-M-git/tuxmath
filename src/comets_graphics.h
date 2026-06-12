@@ -12,7 +12,7 @@ void comets_draw_background(SDL_Surface *bkgd, int wave);
 
 void comets_draw_comets(const comet_type *comets);
 
-void comets_draw_comet_nums(const comet_type *comet, bool answered, SDL_Color *col);
+void comets_draw_comet_nums(const comet_type *comet, bool answered, const SDL_Color *col);
 
 void comets_draw_cities(int igloo_vertical_offset, const cloud_type *cloud, const city_type *cities,
         const penguin_type *penguins, const steam_type *steam);

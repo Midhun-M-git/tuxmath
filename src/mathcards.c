@@ -273,10 +273,14 @@ int MC_Initialize(MC_MathGame* game)
 
     game->math_opts = malloc(sizeof(MC_Options));
 
-    /* Zero out lists. Only YOU can prevent undefined behaviour!*/
+    /* Zero out lists and counters. Only YOU can prevent undefined behaviour!*/
     game->question_list = NULL;
     game->active_quests = NULL;
     game->wrong_quests = NULL;
+    game->next_wrong_quest = NULL;
+    game->time_per_question_list = NULL;
+    game->length_time_per_question_list = 0;
+    game->length_alloc_time_per_question_list = 0;
 
     /* bail out if no struct */
     if (!game->math_opts)

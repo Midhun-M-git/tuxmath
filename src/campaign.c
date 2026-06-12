@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "campaign.h"
 #include "tuxmath.h"
+#include "comets.h"
 #include "credits.h"
 #include "titlescreen.h"
 #include "game.h"
