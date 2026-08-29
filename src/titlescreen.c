@@ -420,8 +420,12 @@ int RenderTitleScreen(void)
 int HandleTitleScreenEvents(SDL_Event* evt)
 {
     if (evt->type == SDL_EVENT_KEY_DOWN)
-        if (evt->key.key == SDLK_F10)
+    {
+        if (evt->key.key == SDLK_F5)
+            ToggleTTS();
+        else if (evt->key.key == SDLK_F10)
             HandleTitleScreenResSwitch(T4K_GetScreen()->w, T4K_GetScreen()->h);
+    }
 
     return handle_easter_egg(evt);
 }
