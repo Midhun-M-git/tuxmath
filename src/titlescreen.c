@@ -222,6 +222,7 @@ void TitleScreen(void)
             if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)
                 return;
         }
+        T4K_PresentScreen();
         SDL_Delay(10);
     }
 
