@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=Tux Math 
+Name=Tux Math
 GenericName=Educational math game
 GenericName[de]=Mathematikspiel
 GenericName[ru]=Образовательная игра
@@ -13,6 +13,7 @@ Exec=tuxmath
 Icon=tuxmath
 Type=Application
 Terminal=false
-Categories=Education;Math;
+StartupNotify=true
+Categories=Education;Math;Game;KidsGame;
 ## X-SuSE-translate=false
 X-Ubuntu-Gettext-Domain=tuxmath

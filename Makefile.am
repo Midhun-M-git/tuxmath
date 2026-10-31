@@ -14,6 +14,12 @@ SUBDIRS = data	\
 
 ACLOCAL_AMFLAGS = -I m4
 
+desktopdir = $(datadir)/applications
+desktop_DATA = tuxmath.desktop
+
+icondir = $(datadir)/pixmaps
+icon_DATA = data/images/icons/tuxmath.svg data/images/icons/tuxmath.png
+
 EXTRA_DIST = t4k_common.mk \
 	tuxmath.spec \
 	tuxmath.desktop \

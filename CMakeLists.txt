@@ -167,3 +167,15 @@ if(ENABLE_NLS)
         add_subdirectory(po)
     endif()
 endif()
+
+# -------------------------------------------------------------------
+# Linux Desktop Launcher & Pixmap Installation
+# -------------------------------------------------------------------
+if(UNIX AND NOT APPLE)
+    install(FILES "${CMAKE_SOURCE_DIR}/tuxmath.desktop"
+            DESTINATION "share/applications")
+    install(FILES "${CMAKE_SOURCE_DIR}/data/images/icons/tuxmath.svg"
+            DESTINATION "share/pixmaps")
+    install(FILES "${CMAKE_SOURCE_DIR}/data/images/icons/tuxmath.png"
+            DESTINATION "share/pixmaps")
+endif()
