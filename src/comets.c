@@ -222,7 +222,9 @@ static int help_renderframe_exit(void);
 static void comets_recalc_positions(int xres, int yres);
 
 //Accessibility functions
-wchar_t* convert_formula_to_sentence(char *formula_string);
+const char* convert_formula_to_sentence(const char *formula_string);
+static void duck_music(void);
+static void unduck_music(void);
 int tts_announcer_switch;
 int tts_announcer(void *unused);
 void stop_tts_announcer_thread();
@@ -503,6 +505,7 @@ int comets_initialize(void)
         fprintf(stderr, "Allocation of powerup comet failed");
         return 0;
     }
+    memset(powerup_comet, 0, sizeof(powerup_comet_type));
 
     cities = (city_type *) malloc(NUM_CITIES * sizeof(city_type));
     if (cities == NULL)
@@ -2229,6 +2232,7 @@ void comets_handle_game_over(int game_status)
             int looping = 1;
             int tux_offset = 0;
             int tux_step = -3;
+            Uint64 won_start_time = SDL_GetTicks();
 
             /* set up victory message: */
             dest_message.x = (screen->w - images[IMG_GAMEOVER_WON]->w) / 2;
@@ -2237,18 +2241,26 @@ void comets_handle_game_over(int game_status)
             dest_message.h = images[IMG_GAMEOVER_WON]->h;
             
             stop_tts_announcer_thread();
-			T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,_("Mission Accomplished! You won!"));
-            
-            
+
+            /* Flush any buffered keystrokes or clicks from answering the final problem */
+            SDL_FlushEvents(SDL_EVENT_KEY_DOWN, SDL_EVENT_KEY_UP);
+            SDL_FlushEvents(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_EVENT_MOUSE_BUTTON_UP);
+
+            duck_music();
+            T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Mission Accomplished! You won!"));
+
             do
             {
                 FC_frame_begin();
 
                 while (Tux_pollEvent(&event) > 0)
                 {
-                    if  (event.type == SDL_EVENT_QUIT
-                            || event.type == SDL_EVENT_KEY_DOWN
-                            || event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+                    if (event.type == SDL_EVENT_QUIT)
+                    {
+                        looping = 0;
+                    }
+                    else if ((event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+                             && (SDL_GetTicks() - won_start_time >= 2000))
                     {
                         looping = 0;
                     }
@@ -2293,6 +2305,9 @@ void comets_handle_game_over(int game_status)
                 FC_frame_end();
             }
             while (looping);
+
+            T4K_Tts_wait();
+            unduck_music();
             break;
         }
 
@@ -2470,10 +2485,17 @@ void comets_handle_game_over(int game_status)
         case GAME_OVER_LOST:
         case GAME_OVER_OTHER:
         {
-			stop_tts_announcer_thread();
-			T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,_("Game Over!"));
-			
+            stop_tts_announcer_thread();
+
+            /* Flush any buffered keystrokes or clicks */
+            SDL_FlushEvents(SDL_EVENT_KEY_DOWN, SDL_EVENT_KEY_UP);
+            SDL_FlushEvents(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_EVENT_MOUSE_BUTTON_UP);
+
+            duck_music();
+            T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Game Over!"));
+
             int looping = 1;
+            Uint64 lost_start_time = SDL_GetTicks();
 
             /* set up GAMEOVER message: */
             dest_message.x = (screen->w - images[IMG_GAMEOVER]->w) / 2;
@@ -2487,9 +2509,12 @@ void comets_handle_game_over(int game_status)
 
                 while (Tux_pollEvent(&event) > 0)
                 {
-                    if  (event.type == SDL_EVENT_QUIT
-                            || event.type == SDL_EVENT_KEY_DOWN
-                            || event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+                    if (event.type == SDL_EVENT_QUIT)
+                    {
+                        looping = 0;
+                    }
+                    else if ((event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+                             && (SDL_GetTicks() - lost_start_time >= 1500))
                     {
                         looping = 0;
                     }
@@ -2502,6 +2527,8 @@ void comets_handle_game_over(int game_status)
             }
             while (looping);
 
+            T4K_Tts_wait();
+            unduck_music();
             break;
         }
 
@@ -4021,55 +4048,107 @@ void print_current_quests(void)
 }
 
 
-wchar_t* convert_formula_to_sentence(char *formula_string)
+static float ducked_orig_music_vol = -1.0f;
+
+static void duck_music(void)
 {
-	wchar_t wc_formula[2000];
-	static wchar_t sentence[2000];
-	wchar_t *ptr = NULL;
-	wchar_t *temp = NULL;
-
-	if (!formula_string)
-		return L"";
-
-	mbstowcs(wc_formula, formula_string, 1999);
-	wc_formula[1999] = L'\0';
-	sentence[0] = L'\0';
-	temp = wcstok(wc_formula, L" ", &ptr);
-	while(temp != NULL)
+	if (ducked_orig_music_vol < 0.0f)
 	{
-		size_t cur_len = wcslen(sentence);
-		if (cur_len >= 1950) break;
+		ducked_orig_music_vol = T4K_AudioGetMusicVolume();
+		T4K_AudioSetMusicVolume(ducked_orig_music_vol * 0.2f);
+	}
+}
 
-		if (wcscmp(temp, L"+") == 0)
-			wcsncat(sentence, L"plus ", 1999 - cur_len);
-		else if (wcscmp(temp, L"-") == 0)
-			wcsncat(sentence, L"minus ", 1999 - cur_len);
-		else if (wcscmp(temp, L"÷") == 0)
-			wcsncat(sentence, L"divided by ", 1999 - cur_len);
-		else if (wcscmp(temp, L"x") == 0)
-			wcsncat(sentence, L"Times ", 1999 - cur_len);
+static void unduck_music(void)
+{
+	if (ducked_orig_music_vol >= 0.0f)
+	{
+		T4K_AudioSetMusicVolume(ducked_orig_music_vol);
+		ducked_orig_music_vol = -1.0f;
+	}
+}
+
+const char* convert_formula_to_sentence(const char *formula_string)
+{
+	static char sentence[1024];
+	char copy[1024];
+	char *tok;
+	char *saveptr = NULL;
+
+	if (!formula_string || formula_string[0] == '\0')
+		return "";
+
+	strncpy(copy, formula_string, sizeof(copy) - 1);
+	copy[sizeof(copy) - 1] = '\0';
+	sentence[0] = '\0';
+
+	tok = strtok_r(copy, " ", &saveptr);
+	while (tok != NULL)
+	{
+		size_t cur_len = strlen(sentence);
+		if (cur_len >= sizeof(sentence) - 64)
+			break;
+
+		if (strcmp(tok, "+") == 0)
+		{
+			strncat(sentence, "plus ", sizeof(sentence) - cur_len - 1);
+		}
+		else if (strcmp(tok, "-") == 0)
+		{
+			strncat(sentence, "minus ", sizeof(sentence) - cur_len - 1);
+		}
+		else if (strcmp(tok, "x") == 0 || strcmp(tok, "X") == 0 ||
+		         strcmp(tok, "*") == 0 || strcmp(tok, "\xc3\x97") == 0)
+		{
+			strncat(sentence, "times ", sizeof(sentence) - cur_len - 1);
+		}
+		else if (strcmp(tok, "Ã·") == 0 || strcmp(tok, "\xc3\xb7") == 0 ||
+		         strcmp(tok, "/") == 0)
+		{
+			strncat(sentence, "divided by ", sizeof(sentence) - cur_len - 1);
+		}
+		else if (strcmp(tok, "=") == 0)
+		{
+			strncat(sentence, "equals ", sizeof(sentence) - cur_len - 1);
+		}
+		else if (strcmp(tok, "?") == 0)
+		{
+			/* If '?' is at the beginning or middle, say 'what ' */
+			if (cur_len == 0 || strstr(sentence, "equals") == NULL)
+			{
+				strncat(sentence, "what ", sizeof(sentence) - cur_len - 1);
+			}
+		}
 		else
 		{
-			wcsncat(sentence, temp, 1999 - cur_len);
-			cur_len = wcslen(sentence);
-			if (cur_len < 1998)
-				wcsncat(sentence, L" ", 1999 - cur_len);
+			strncat(sentence, tok, sizeof(sentence) - cur_len - 1);
+			cur_len = strlen(sentence);
+			if (cur_len < sizeof(sentence) - 2)
+			{
+				strncat(sentence, " ", sizeof(sentence) - cur_len - 1);
+			}
 		}
-		temp = wcstok(NULL, L" ", &ptr);
+
+		tok = strtok_r(NULL, " ", &saveptr);
 	}
+
+	/* Trim trailing space */
+	size_t len = strlen(sentence);
+	while (len > 0 && sentence[len - 1] == ' ')
+	{
+		sentence[--len] = '\0';
+	}
+
 	return sentence;
 }
 
 int tts_announcer(void *unused)
 {
-	int i,j;
-	
-	int order[15],iter;
-	float y_axis;
+	int i, j;
+	int order[15], iter;
+	int y_axis;
 	int sort_limit, announce_count;
 
-	int pitch;
-	int rate;
 	tts_announcer_switch = 1;
 	
 	SDL_Delay(20);
@@ -4083,82 +4162,96 @@ int tts_announcer(void *unused)
 		}
 		else if(tts_announcer_switch == 2)
 		{
-			
 #ifdef HAVE_LIBSDL_NET
 			if (Opts_LanMode())
 			{
-				T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,"Score Board. ");
+				duck_music();
+				T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "Score Board. ");
 				for (i = 0; i < MAX_CLIENTS; i++)
 				{
 					if(LAN_PlayerConnected(i))
 					{
-						T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,APPEND,"%s %d",LAN_PlayerName(i),  LAN_PlayerScore(i));
+						T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, APPEND, "%s %d", LAN_PlayerName(i), LAN_PlayerScore(i));
 						T4K_Tts_wait();
 					}
 				}
+				unduck_music();
 			}
 			else
 #endif
 			{	
-				T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,"Score %d!",score);
+				duck_music();
+				T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "Score %d!", score);
+				SDL_Delay(20);
+				T4K_Tts_wait();
+				unduck_music();
 			}
-			SDL_Delay(20);
-			T4K_Tts_wait();
 			tts_announcer_switch = 1;
 		}
 		else if(tts_announcer_switch == 3)
 		{
-			T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,"%d iglu alive!",num_cities_alive);
+			duck_music();
+			T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%d iglu alive!", num_cities_alive);
 			SDL_Delay(20);
 			T4K_Tts_wait();
+			unduck_music();
 			tts_announcer_switch = 1;
 		}		
 		else if(tts_announcer_switch == 4)
 		{
-			T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,"on wave %d!",wave);
+			duck_music();
+			T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "on wave %d!", wave);
 			SDL_Delay(20);
 			T4K_Tts_wait();
+			unduck_music();
 			tts_announcer_switch = 1;
 		}	
 		else if(tts_announcer_switch == 5)
 		{
-			T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,"Press 'x' key to use smart bomb!");
+			duck_music();
+			T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "Press 'x' key to use smart bomb!");
 			SDL_Delay(20);
 			T4K_Tts_wait();
+			unduck_music();
 			tts_announcer_switch = 1;
 		}			
 		
-		
 		/* Continue the process of announcing formula */
-		if(powerup_comet->comet.alive){
-			T4K_Tts_say(DEFAULT_VALUE,70,INTERRUPT,"%S",convert_formula_to_sentence(powerup_comet->comet.flashcard.formula_string));
+		if (powerup_comet && powerup_comet->comet.alive)
+		{
+			duck_music();
+			T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%s",
+				convert_formula_to_sentence(powerup_comet->comet.flashcard.formula_string));
 			SDL_Delay(20);
-			T4K_Tts_wait();					
+			T4K_Tts_wait();
+			unduck_music();
 		}
-		else{
+		else
+		{
 			iter = 0;				
-			//Getting all alive comets to
-			for (i = 0; i < MAX_MAX_COMETS; i++){
-				if (comets[i].alive){
+			// Getting all alive comets
+			for (i = 0; i < MAX_MAX_COMETS; i++)
+			{
+				if (comets[i].alive)
+				{
 					order[iter] = i;
 					iter++;
 				}
 			}
 			
-			/*Odering the fishes with respect to y axis
-			 * we only sort and announce the last three
-			 * comets other wise it causes segfault */
-			if (iter != 0)
+			if (iter == 0)
 			{
-				/* order[] only has `iter` valid entries filled in
-				 * above - bound the sort to those, otherwise the
-				 * comparisons below index comets[] with whatever
-				 * uninitialized garbage happens to be left in the
-				 * unused slots of order[]. */
+				SDL_Delay(50);
+			}
+			else
+			{
 				sort_limit = iter - 1;
-				for (i = 0; i < sort_limit; i++){
-					for(j = 0; j < sort_limit - i; j++){
-						if (comets[order[j]].y < comets[order[j+1]].y){
+				for (i = 0; i < sort_limit; i++)
+				{
+					for (j = 0; j < sort_limit - i; j++)
+					{
+						if (comets[order[j]].y < comets[order[j+1]].y)
+						{
 							y_axis = order[j+1];
 							order[j+1] = order[j];
 							order[j] = y_axis;
@@ -4167,49 +4260,49 @@ int tts_announcer(void *unused)
 				}
 
 				/* Announces only last three comets
-				 * to avoid confusion for a listener*/
+				 * to avoid confusion for a listener */
 				announce_count = iter < 3 ? iter : 3;
-				for (i = 0; i < announce_count ; i++)
+				for (i = 0; i < announce_count; i++)
 				{
 					if (tts_announcer_switch == 0)
 						goto end;
 				
-					//Announce if comet is alive
+					// Announce if comet is alive
 					if (comets[order[i]].alive)
 					{
-						rate = (int)(comets[order[i]].y*100)/(screen->h - igloo_vertical_offset - images[IMG_IGLOO_INTACT]->h);
-						if (rate < 30)
-							rate = 30;
-						else if (rate > 70)
-							rate = 70;
-				
-						T4K_Tts_say(rate,rate,INTERRUPT,"%S",
+						duck_music();
+						T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%s",
 							convert_formula_to_sentence(comets[order[i]].flashcard.formula_string));
 						SDL_Delay(20);
 						T4K_Tts_wait();
+						unduck_music();
 					}
-				}		
+				}
+				SDL_Delay(600);
 			}
 		}	
 	}
-	end:
+end:
+	unduck_music();
 	return 0;
 }
+
 SDL_Thread *tts_announcer_thread = NULL;
 
-void start_tts_announcer_thread(){
+void start_tts_announcer_thread()
+{
 	if (!tts_announcer_thread)
-		tts_announcer_thread = SDL_CreateThread(tts_announcer,"tts_announcer",NULL);
+		tts_announcer_thread = SDL_CreateThread(tts_announcer, "tts_announcer", NULL);
 }
 
-void stop_tts_announcer_thread(){
+void stop_tts_announcer_thread()
+{
 	tts_announcer_switch = 0;
 	T4K_Tts_stop();
+	unduck_music();
 	if (tts_announcer_thread)
 	{
 		SDL_WaitThread(tts_announcer_thread, NULL);
 		tts_announcer_thread = NULL;
 	}
 }
-
-
