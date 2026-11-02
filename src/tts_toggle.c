@@ -58,10 +58,40 @@ int Tux_pollEvent(SDL_Event *event)
         if (event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
             event->type = SDL_EVENT_QUIT;
 
+        if (event->type == SDL_EVENT_WINDOW_RESIZED ||
+            event->type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
+            event->type == SDL_EVENT_WINDOW_RESTORED)
+        {
+            T4K_UpdateScreenSize();
+            screen = T4K_GetScreen();
+            if (T4K_GetWindow())
+            {
+                Uint32 wflags = SDL_GetWindowFlags(T4K_GetWindow());
+                Opts_SetGlobalOpt(FULLSCREEN, (wflags & SDL_WINDOW_FULLSCREEN) != 0);
+            }
+        }
+
         if (event->type == SDL_EVENT_KEY_DOWN)
         {
             if (event->key.key == SDLK_F5)
                 ToggleTTS();
+            else if (event->key.key == SDLK_F10)
+            {
+                T4K_SwitchScreenMode();
+                screen = T4K_GetScreen();
+                if (T4K_GetWindow())
+                {
+                    Uint32 wflags = SDL_GetWindowFlags(T4K_GetWindow());
+                    Opts_SetGlobalOpt(FULLSCREEN, (wflags & SDL_WINDOW_FULLSCREEN) != 0);
+                    write_user_config_file(local_game);
+                }
+            }
+#ifndef NOSOUND
+            else if (event->key.key == SDLK_F11)
+            {
+                T4K_AudioToggle();
+            }
+#endif
         }
     }
     return ret;

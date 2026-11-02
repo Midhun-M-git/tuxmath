@@ -3359,6 +3359,12 @@ void comets_recalc_positions(int xres, int yres)
 {
     int i, img;
     int old_city_expl_height = city_expl_height;
+    screen = T4K_GetScreen();
+    if (T4K_GetWindow())
+    {
+        Uint32 wflags = SDL_GetWindowFlags(T4K_GetWindow());
+        Opts_SetGlobalOpt(FULLSCREEN, (wflags & SDL_WINDOW_FULLSCREEN) != 0);
+    }
 
     DEBUGMSG(debug_game,"Recalculating positions\n");
 
@@ -3402,7 +3408,8 @@ void comets_recalc_positions(int xres, int yres)
         //move comets to a location 'equivalent' to where they were
         //i.e. with the same amount of time left before impact
         comets[i].x = cities[comets[i].city].x;
-        comets[i].y = comets[i].y * city_expl_height / old_city_expl_height;
+        if (old_city_expl_height > 0)
+            comets[i].y = comets[i].y * city_expl_height / old_city_expl_height;
         //  Re-render the numbers of any living comets at the new resolution:
         if(comets[i].formula_surf != NULL)  //for safety, but shouldn't occur if comet is alive
         {

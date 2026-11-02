@@ -761,7 +761,7 @@ void initialize_SDL(void)
         {
             SDL_Window* win = NULL;
             SDL_Renderer* ren = NULL;
-            Uint32 window_flags = 0;
+            Uint32 window_flags = SDL_WINDOW_RESIZABLE;
             int w, h;
 
             if (Opts_GetGlobalOpt(FULLSCREEN))
@@ -785,6 +785,7 @@ void initialize_SDL(void)
                         "%s\n\n", SDL_GetError());
                 Opts_SetGlobalOpt(FULLSCREEN, 0);
                 window_flags &= ~SDL_WINDOW_FULLSCREEN;
+                window_flags |= SDL_WINDOW_RESIZABLE;
                 w = Opts_WindowWidth();
                 h = Opts_WindowHeight();
                 win = SDL_CreateWindow("Tux, of Math Command", w, h, window_flags);

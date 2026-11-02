@@ -460,12 +460,6 @@ int RenderTitleScreen(void)
    return 1 if events require full redraw */
 int HandleTitleScreenEvents(SDL_Event* evt)
 {
-    if (evt->type == SDL_EVENT_KEY_DOWN)
-    {
-        if (evt->key.key == SDLK_F10)
-            HandleTitleScreenResSwitch(T4K_GetScreen()->w, T4K_GetScreen()->h);
-    }
-
     return handle_easter_egg(evt);
 }
 
@@ -477,6 +471,12 @@ void HandleTitleScreenResSwitch(int new_w, int new_h)
     /* After a resize, t4kcommon may have reallocated the screen surface.
        Refresh our local pointer so RenderTitleScreen() uses the new one. */
     screen = T4K_GetScreen();
+    if (T4K_GetWindow())
+    {
+        Uint32 wflags = SDL_GetWindowFlags(T4K_GetWindow());
+        Opts_SetGlobalOpt(FULLSCREEN, (wflags & SDL_WINDOW_FULLSCREEN) != 0);
+        write_user_config_file(local_game);
+    }
     RenderTitleScreen();
 }
 

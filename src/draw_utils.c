@@ -17,8 +17,9 @@ float get_scale(void)
     int win_w, win_h, full_w, full_h;
 
     T4K_GetResolutions(&win_w, &win_h, &full_w, &full_h);
-    if(T4K_GetScreen()->h == full_h)
-        return  pow(((float)full_h/(float)win_h), SCALE_EXPONENT);
+    if(T4K_GetScreen() && win_h > 0 && T4K_GetScreen()->h > win_h)
+        return  pow(((float)T4K_GetScreen()->h/(float)win_h), SCALE_EXPONENT);
+
     else
         return  1;
 }
