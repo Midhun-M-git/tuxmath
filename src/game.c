@@ -511,7 +511,6 @@ int pause_game(void)
         SDL_Delay(33);
     }
 
-    SDL_HideCursor();
     pause_unload_media();
 
     if (!pause_quit)

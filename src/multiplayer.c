@@ -278,7 +278,11 @@ void showWinners(int* winners, int num)
         while (Tux_pollEvent(&evt))
         {
             if (evt.type == SDL_EVENT_QUIT || evt.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+            {
+                SDL_Event qe = { .type = SDL_EVENT_QUIT };
+                SDL_PushEvent(&qe);
                 return;
+            }
             if (evt.type == SDL_EVENT_KEY_DOWN || evt.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
                 return;
         }

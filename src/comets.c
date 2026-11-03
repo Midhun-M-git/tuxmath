@@ -403,10 +403,8 @@ int comets_game(MC_MathGame* mgame)
     /* Return the chosen command: */
     if (GAME_OVER_WINDOW_CLOSE == comets_status)
     {
-        /* program exits: */
-        cleanup();
         DEBUGMSG(debug_game, "Leaving game() from window close\n");
-        return 1;
+        return GAME_OVER_WINDOW_CLOSE;
     }
     else
     {
@@ -424,6 +422,9 @@ int comets_initialize(void)
 
     DEBUGMSG(debug_game,"Entering comets_initialize()\n");
     DEBUGCODE(debug_game) print_game_options(stderr, 0);
+
+    /* Ensure mouse cursor is visible for on-screen buttons and menus */
+    SDL_ShowCursor();
 
     /* Clear window: */
     SDL_FillSurfaceRect(screen, NULL, SDL_MapRGB(screen->format, 0, 0, 0));
@@ -841,8 +842,10 @@ void comets_handle_help(void)
     game_set_message(&s4,_("Notice the answer"),left_edge,comets[0].y-100);    
 	T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,APPEND,"%s 9",_("Notice the answer"));
     
-    help_renderframe_exit();
-    SDL_Delay(4000);
+    timer = 0;
+    while ((timer += FC_time_elapsed) < 4 && !(quit_help = help_renderframe_exit()));
+    if (quit_help)
+        return;
     comets_clear_message(&s4);
 
     timer = 0;
@@ -2867,9 +2870,14 @@ void comets_mouse_event(SDL_Event event)
 
     /* Check to see if user clicked exit button: */
     /* The exit button is in the upper right corner of the screen: */
-    if(event.button.button == SDL_BUTTON_LEFT &&
-            (event.button.x >= (screen->w - images[IMG_STOP]->w)) &&
-            (event.button.y <= images[IMG_STOP]->h))
+    int stop_w = images[IMG_STOP] ? images[IMG_STOP]->w : 48;
+    int stop_h = images[IMG_STOP] ? images[IMG_STOP]->h : 48;
+    if (stop_w < 50) stop_w = 50;
+    if (stop_h < 50) stop_h = 50;
+
+    if (event.button.button == SDL_BUTTON_LEFT &&
+        (event.button.x >= (screen->w - stop_w)) &&
+        (event.button.y <= stop_h))
     {
         user_quit_received = GAME_OVER_ESCAPE;
         return;
