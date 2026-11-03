@@ -225,7 +225,7 @@ static void comets_recalc_positions(int xres, int yres);
 const char* convert_formula_to_sentence(const char *formula_string);
 static void duck_music(void);
 static void unduck_music(void);
-int tts_announcer_switch;
+volatile int tts_announcer_switch;
 int tts_announcer(void *unused);
 void stop_tts_announcer_thread();
 void start_tts_announcer_thread();
@@ -359,8 +359,9 @@ int comets_game(MC_MathGame* mgame)
             stop_tts_announcer_thread();
             if (pause_game() == PAUSE_QUIT)
             {
-                user_quit_received = GAME_OVER_ESCAPE;
-                comets_status = GAME_OVER_ESCAPE;
+                if (user_quit_received != GAME_OVER_WINDOW_CLOSE)
+                    user_quit_received = GAME_OVER_ESCAPE;
+                comets_status = user_quit_received;
                 break;
             }
             paused = 0;
@@ -1002,7 +1003,8 @@ int help_renderframe_exit(void)
     comets_draw();
     if (paused)
     {
-        user_quit_received = GAME_OVER_ESCAPE;
+        if (user_quit_received != GAME_OVER_WINDOW_CLOSE)
+            user_quit_received = GAME_OVER_ESCAPE;
         paused = 0;
     }
     comets_status = check_exit_conditions();
@@ -3301,6 +3303,7 @@ void free_on_exit(void)
     int i;
 
     DEBUGMSG(debug_game,"Enter free_on_exit\n");
+    stop_tts_announcer_thread();
 
     for (i = 0; i < MAX_MAX_COMETS; ++i)
     {

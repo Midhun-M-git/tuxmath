@@ -246,6 +246,10 @@ int pause_game(void)
                     user_quit_received = GAME_OVER_WINDOW_CLOSE;
                     paused = 0;
                     pause_quit = 1;
+                    {
+                        SDL_Event qe = { .type = SDL_EVENT_QUIT };
+                        SDL_PushEvent(&qe);
+                    }
                     break;
 
                 case SDL_EVENT_KEY_DOWN:

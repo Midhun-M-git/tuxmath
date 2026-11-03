@@ -371,7 +371,7 @@ static void stop_factoroids_tts_announcer(void)
 }
 
 /************** factors(): The factor main function ********************/
-void factors(void)
+int factors(void)
 {
     static int previous_fps = -1;
     quit = 0;
@@ -391,7 +391,7 @@ void factors(void)
     {
         fprintf(stderr, "FF_init() failed!\n");
         FF_exit_free();
-        return;
+        return 0;
     }
 
     factoroids_draw(asteroid, &tuxship, laser, bonus, bonus_time, digits, wave, score, num, tux_img, button_pressed);
@@ -426,8 +426,17 @@ void factors(void)
             stop_factoroids_tts_announcer();
             if (pause_game() == PAUSE_QUIT)
             {
-                escape_received = 1;
-                game_status = FF_OVER_ESCAPE;
+                extern int user_quit_received;
+                if (user_quit_received == 5 /* GAME_OVER_WINDOW_CLOSE */)
+                {
+                    SDL_quit_received = 1;
+                    game_status = FF_OVER_SDL_QUIT;
+                }
+                else
+                {
+                    escape_received = 1;
+                    game_status = FF_OVER_ESCAPE;
+                }
                 break;
             }
             paused = 0;
@@ -456,11 +465,19 @@ void factors(void)
     {
         Opts_SetFPSLimit(previous_fps);
     }
+
+    if (game_status == FF_OVER_SDL_QUIT || SDL_quit_received)
+    {
+        SDL_Event qe = { .type = SDL_EVENT_QUIT };
+        SDL_PushEvent(&qe);
+        return 5; /* GAME_OVER_WINDOW_CLOSE */
+    }
+    return 0;
 }
 
 
 /************** fractions(): The fractions main function ********************/
-void fractions(void)
+int fractions(void)
 {
     quit = 0;
     tux_img = IMG_TUX_CONSOLE1;
@@ -473,7 +490,7 @@ void fractions(void)
     {
         fprintf(stderr, "FF_init() failed!\n");
         FF_exit_free();
-        return;
+        return 0;
     }
 
     factoroids_draw(asteroid, &tuxship, laser, bonus, bonus_time, digits, wave, score, num, tux_img, button_pressed);
@@ -513,8 +530,17 @@ void fractions(void)
             stop_factoroids_tts_announcer();
             if (pause_game() == PAUSE_QUIT)
             {
-                escape_received = 1;
-                game_status = FF_OVER_ESCAPE;
+                extern int user_quit_received;
+                if (user_quit_received == 5 /* GAME_OVER_WINDOW_CLOSE */)
+                {
+                    SDL_quit_received = 1;
+                    game_status = FF_OVER_SDL_QUIT;
+                }
+                else
+                {
+                    escape_received = 1;
+                    game_status = FF_OVER_ESCAPE;
+                }
                 break;
             }
             paused = 0;
@@ -536,6 +562,14 @@ void fractions(void)
     }
     stop_factoroids_tts_announcer();
     FF_over(game_status);
+
+    if (game_status == FF_OVER_SDL_QUIT || SDL_quit_received)
+    {
+        SDL_Event qe = { .type = SDL_EVENT_QUIT };
+        SDL_PushEvent(&qe);
+        return 5; /* GAME_OVER_WINDOW_CLOSE */
+    }
+    return 0;
 }
 
 

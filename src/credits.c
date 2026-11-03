@@ -485,6 +485,8 @@ int scroll_text(char text[MAX_LINES][MAX_LINEWIDTH], SDL_Rect subscreen, int spe
             if (event.type == SDL_EVENT_QUIT)
             {
                 /* Window close event - quit! */
+                SDL_Event qe = { .type = SDL_EVENT_QUIT };
+                SDL_PushEvent(&qe);
                 quit = 1;
                 done = 1;
             }

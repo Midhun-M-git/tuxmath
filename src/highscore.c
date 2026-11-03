@@ -60,8 +60,8 @@ void DisplayHighScores(int level)
     /* Surfaces, char buffers, and rects for table: */
     SDL_Surface* score_surfs[HIGH_SCORES_SAVED] = {NULL};
 
-    /* 10 spaces should be enough room for place and score on each line: */
-    char score_strings[HIGH_SCORES_SAVED][HIGH_SCORE_NAME_LENGTH + 10] = {{'\0'}};
+    /* Buffer sized generously for place number, score, spacing, and UTF-8 player name: */
+    char score_strings[HIGH_SCORES_SAVED][HIGH_SCORE_NAME_LENGTH * 3 + 64] = {{'\0'}};
 
     SDL_Rect score_rects[HIGH_SCORES_SAVED];
     SDL_Rect table_bg;
@@ -72,7 +72,7 @@ void DisplayHighScores(int level)
     const int title_font_size = 32;
     const int player_font_size = 14;
     
-    char tts_temp[2000];
+    char tts_temp[4096];
     
     while (!finished)
     {
@@ -284,7 +284,7 @@ void DisplayHighScores(int level)
             for (i = 0; i < HIGH_SCORES_SAVED; i++)
             {
                 /* Get data for entries: */
-                sprintf(score_strings[i],
+                snprintf(score_strings[i], sizeof(score_strings[i]),
                         "%d.    %d     %s",
                         i + 1,                  /* Add one to get common-language place number */
                         HS_Score(diff_level, i),
@@ -423,22 +423,25 @@ void NameEntry(char* pl_name, const char* s1, const char* s2, const char* s3)
             SDL_DestroySurface(surf);
         }
 
-        surf = T4K_BlackOutline(_(s3),
-                DEFAULT_MENU_FONT_SIZE, &white);
-        if (surf)
+        if (s3)
         {
-            loc.x = (screen->w/2) - (surf->w/2);
-            loc.y = 170;
-            SDL_BlitSurface(surf, NULL, screen, &loc);
-            SDL_DestroySurface(surf);
+            surf = T4K_BlackOutline(_(s3),
+                    DEFAULT_MENU_FONT_SIZE, &white);
+            if (surf)
+            {
+                loc.x = (screen->w/2) - (surf->w/2);
+                loc.y = 170;
+                SDL_BlitSurface(surf, NULL, screen, &loc);
+                SDL_DestroySurface(surf);
+            }
         }
 
     }
-    if (_(s3) != NULL)
-		T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,APPEND,"%s %s %s",_(s1),_(s2),_(s3));
-	else if(_(s2) != NULL)
-		T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,APPEND,"%s %s",_(s1),_(s2));
-	else
+    if (s3 != NULL)
+		T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,APPEND,"%s %s %s",s1 ? _(s1) : "",s2 ? _(s2) : "",_(s3));
+	else if(s2 != NULL)
+		T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,APPEND,"%s %s",s1 ? _(s1) : "",_(s2));
+	else if(s1 != NULL)
 		T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,APPEND,"%s",_(s1));
 
     /* and update: */

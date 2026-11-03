@@ -84,6 +84,7 @@ void mp_run_multiplayer()
     if (initMP() )
     {
         fprintf(stderr, "Initialization failed, bailing out\n");
+        cleanupMP();
         return;
     }
 
@@ -99,6 +100,14 @@ void mp_run_multiplayer()
 			T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,"%s %s ",pnames[currentplayer],_("Go!"));
             
             result = comets_game(local_game);
+
+            if (result == GAME_OVER_WINDOW_CLOSE)
+            {
+                SDL_Event qe = { .type = SDL_EVENT_QUIT };
+                SDL_PushEvent(&qe);
+                cleanupMP();
+                return;
+            }
 
             if (result == GAME_OVER_LOST || result == GAME_OVER_ESCAPE)
             {
@@ -141,6 +150,13 @@ void mp_run_multiplayer()
 				T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,"%s %s ",pnames[currentplayer],_("Go!"));
                 
                 result = comets_game(local_game);
+                if (result == GAME_OVER_WINDOW_CLOSE)
+                {
+                    SDL_Event qe = { .type = SDL_EVENT_QUIT };
+                    SDL_PushEvent(&qe);
+                    cleanupMP();
+                    return;
+                }
                 //pscores[currentplayer] += Opts_LastScore(); //add this player's score
                 if (result == GAME_OVER_WON)
                     pscores[currentplayer] += 500; //plus a possible bonus
@@ -261,8 +277,16 @@ void showWinners(int* winners, int num)
         T4K_UpdateRect(screen, NULL);
 
         while (Tux_pollEvent(&evt) )
+        {
+            if (evt.type == SDL_EVENT_QUIT || evt.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+            {
+                SDL_Event qe = { .type = SDL_EVENT_QUIT };
+                SDL_PushEvent(&qe);
+                return;
+            }
             if (evt.type == SDL_EVENT_KEY_DOWN && evt.key.key == SDLK_ESCAPE)
                 skip = 1;
+        }
         if (skip)
             break;
         SDL_Delay(50);
@@ -362,6 +386,11 @@ int initMP()
         while (params[ROUNDS] <= 0)
         {
             NameEntry(nrstr, N_("How many rounds will you play?"), N_("Enter a number"), NULL);
+            if (nrstr[0] == '\0')
+            {
+                cleanupMP();
+                return 1;
+            }
             params[ROUNDS] = atoi(nrstr);
         }
     }

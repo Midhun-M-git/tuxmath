@@ -146,7 +146,8 @@ int handle_activity(int act, int param)
 
         case RUN_ARCADE:
             DEBUGMSG(debug_menu, "activity: RUN_ARCADE\n");
-            run_arcade(param);
+            if (run_arcade(param) == QUIT)
+                return QUIT;
             break;
 
         case RUN_LAN_HOST:
@@ -166,7 +167,8 @@ int handle_activity(int act, int param)
 
         case RUN_CUSTOM:
             DEBUGMSG(debug_menu, "activity: RUN_CUSTOM\n");
-            run_custom_game();
+            if (run_custom_game() == QUIT)
+                return QUIT;
             break;
 
         case RUN_HALL_OF_FAME:
@@ -197,11 +199,13 @@ int handle_activity(int act, int param)
             break;
 
         case RUN_FACTORS:
-            run_factoroids(0);
+            if (run_factoroids(0) == QUIT)
+                return QUIT;
             break;
 
         case RUN_FRACTIONS:
-            run_factoroids(1);
+            if (run_factoroids(1) == QUIT)
+                return QUIT;
             break;
 
         case RUN_DEMO:
@@ -241,7 +245,8 @@ int handle_activity(int act, int param)
             break;
 
         case RUN_CREDITS:
-            credits();
+            if (credits() == 1)
+                return QUIT;
             break;
 
         case RUN_QUIT:
@@ -407,6 +412,8 @@ void run_multiplayer(int mode, int difficulty)
     {
         NameEntry(npstr, _("How many kids are playing?"),
                 _("(Between 2 and 4 players)"), NULL);
+        if (npstr[0] == '\0')
+            return;
         nplayers = atoi(npstr);
     }
 
@@ -423,12 +430,16 @@ int run_factoroids(int choice)
     const int factoroids_high_score_tables[2] =
     {FACTORS_HIGH_SCORE, FRACTIONS_HIGH_SCORE};
     int hs_table;
+    int f_status;
 
     T4K_AudioMusicUnload();
     if(choice == 0)
-        factors();
+        f_status = factors();
     else
-        fractions();
+        f_status = fractions();
+
+    if (f_status == GAME_OVER_WINDOW_CLOSE)
+        return QUIT;
 
     if (Opts_GetGlobalOpt(MENU_MUSIC))
         T4K_AudioMusicLoad( "tuxi.ogg", -1 );

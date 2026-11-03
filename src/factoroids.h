@@ -91,8 +91,8 @@ enum {
 
 // Used in titleecreen.c
 
-void factors(void);
-void fractions(void);
+int factors(void);
+int fractions(void);
 
 void wait_for_input(void);
 
