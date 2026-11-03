@@ -145,6 +145,7 @@ static int safe_prime(int w)
     if (w > 6) w = 6;
     return prime_numbers[w - 1];
 }
+
 static const int prime_power_limit[] = {7, 4, 3, 3, 2, 2}; //custom calibrated power limits for extra "goodness"
 
 static const int prime_next[] = {2, 2, 3, 5, 5, 7, 7, 11, 11, 11, 11, 13, 13, 2};
@@ -233,6 +234,142 @@ static int game_mouse_event(SDL_Event event);
 static int game_mouseroto(SDL_Event event) {return event.motion.xrel;}
 static void _tb_PowerBomb(int n);
 
+static SDL_Thread *factoroids_tts_thread = NULL;
+static volatile int factoroids_tts_switch = 0;
+
+static int factoroids_tts_announcer(void *unused)
+{
+    (void)unused;
+    factoroids_tts_switch = 1;
+    SDL_Delay(100);
+    T4K_Tts_wait();
+
+    while (factoroids_tts_switch != 0)
+    {
+        if (!Opts_GetGlobalOpt(USE_TTS))
+        {
+            SDL_Delay(200);
+            continue;
+        }
+
+        if (factoroids_tts_switch == 2)
+        {
+            T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Score: %d"), score);
+            SDL_Delay(20);
+            T4K_Tts_wait();
+            factoroids_tts_switch = 1;
+        }
+        else if (factoroids_tts_switch == 3)
+        {
+            T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("%d lives remaining"), tuxship.lives);
+            SDL_Delay(20);
+            T4K_Tts_wait();
+            factoroids_tts_switch = 1;
+        }
+        else if (factoroids_tts_switch == 4)
+        {
+            T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Wave %d"), wave);
+            SDL_Delay(20);
+            T4K_Tts_wait();
+            factoroids_tts_switch = 1;
+        }
+        else if (factoroids_tts_switch == 5)
+        {
+            T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Laser set to %d"), digits[1]*10 + digits[2]);
+            SDL_Delay(20);
+            T4K_Tts_wait();
+            factoroids_tts_switch = 1;
+        }
+        else
+        {
+            /* Periodic announcement of visible asteroids */
+            if (asteroid != NULL)
+            {
+                int count = 0;
+                int targets[MAX_ASTEROIDS];
+                int i;
+                for (i = 0; i < MAX_ASTEROIDS; i++)
+                {
+                    if (asteroid[i].alive)
+                    {
+                        targets[count++] = i;
+                    }
+                }
+
+                if (count == 0)
+                {
+                    SDL_Delay(100);
+                }
+                else
+                {
+                    int speak_limit = (count < 3) ? count : 3;
+                    for (i = 0; i < speak_limit; i++)
+                    {
+                        if (factoroids_tts_switch == 0)
+                            goto end;
+                        if (!Opts_GetGlobalOpt(USE_TTS))
+                            break;
+
+                        int idx = targets[i];
+                        if (asteroid[idx].alive)
+                        {
+                            if (FF_game == FACTOROIDS_GAME)
+                            {
+                                int val = asteroid[idx].fact_number;
+                                if (val > 0)
+                                {
+                                    T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%d", val);
+                                    SDL_Delay(20);
+                                    T4K_Tts_wait();
+                                }
+                            }
+                            else if (FF_game == FRACTIONS_GAME)
+                            {
+                                T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%d over %d", asteroid[idx].a, asteroid[idx].b);
+                                SDL_Delay(20);
+                                T4K_Tts_wait();
+                            }
+                        }
+                    }
+                    /* Delay between announcement sweeps (wake up immediately on status requests) */
+                    for (i = 0; i < 15; i++)
+                    {
+                        if (factoroids_tts_switch != 1)
+                            break;
+                        SDL_Delay(100);
+                    }
+                }
+            }
+            else
+            {
+                SDL_Delay(100);
+            }
+        }
+    }
+end:
+    return 0;
+}
+
+static void start_factoroids_tts_announcer(void)
+{
+    if (!factoroids_tts_thread)
+    {
+        factoroids_tts_switch = 1;
+        factoroids_tts_thread = SDL_CreateThread(factoroids_tts_announcer, "f_tts_announcer", NULL);
+    }
+}
+
+static void stop_factoroids_tts_announcer(void)
+{
+    factoroids_tts_switch = 0;
+    T4K_Tts_stop();
+    if (factoroids_tts_thread)
+    {
+        SDL_WaitThread(factoroids_tts_thread, NULL);
+        factoroids_tts_thread = NULL;
+    }
+}
+
 /************** factors(): The factor main function ********************/
 void factors(void)
 {
@@ -264,6 +401,8 @@ void factors(void)
     /* Escape key disable in overview screen */
     escape_received = 0;
 
+    start_factoroids_tts_announcer();
+
     while (game_status == FF_IN_PROGRESS)
     {
         FC_frame_begin();
@@ -284,6 +423,7 @@ void factors(void)
 
         if (paused)
         {
+            stop_factoroids_tts_announcer();
             if (pause_game() == PAUSE_QUIT)
             {
                 escape_received = 1;
@@ -291,6 +431,7 @@ void factors(void)
                 break;
             }
             paused = 0;
+            start_factoroids_tts_announcer();
         }
 
 
@@ -308,6 +449,7 @@ void factors(void)
 
         FC_frame_end();
     }
+    stop_factoroids_tts_announcer();
     FF_over(game_status);
 
     if(previous_fps != -1)
@@ -334,7 +476,14 @@ void fractions(void)
         return;
     }
 
+    factoroids_draw(asteroid, &tuxship, laser, bonus, bonus_time, digits, wave, score, num, tux_img, button_pressed);
+    factoroids_level_message(wave);
+    FC_init();
+    escape_received = 0;
+
     /************ Main Loop **************/
+    start_factoroids_tts_announcer();
+
     while (game_status == FF_IN_PROGRESS)
     {
         static float timer = 0;
@@ -361,6 +510,7 @@ void fractions(void)
 
         if (paused)
         {
+            stop_factoroids_tts_announcer();
             if (pause_game() == PAUSE_QUIT)
             {
                 escape_received = 1;
@@ -368,6 +518,7 @@ void fractions(void)
                 break;
             }
             paused = 0;
+            start_factoroids_tts_announcer();
         }
 
 
@@ -383,6 +534,7 @@ void fractions(void)
 
         FC_frame_end();
     }
+    stop_factoroids_tts_announcer();
     FF_over(game_status);
 }
 
@@ -651,6 +803,13 @@ static void FF_handle_asteroids(void){
                         tuxship.lives--;
                         tuxship.hurt=1;
                         tuxship.hurt_count=50;
+                        if (Opts_GetGlobalOpt(USE_TTS))
+                        {
+                            if (tuxship.lives > 0)
+                                T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Ship hit! %d lives remaining."), tuxship.lives);
+                            else
+                                T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Ship destroyed!"));
+                        }
                     }
                     FF_destroy_asteroid(i, tuxship.xspeed, tuxship.yspeed);
                     playsound(SND_EXPLOSION);
@@ -856,10 +1015,6 @@ static void FF_add_level(void)
 
         factoroids_draw(asteroid, &tuxship, laser, bonus, bonus_time, digits, wave, score, num, tux_img, button_pressed);
         factoroids_level_message(wave);
-        if (Opts_GetGlobalOpt(USE_TTS))
-        {
-            T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Wave %d"), wave);
-        }
         /* Reset frame counter */
         FC_init();
         /* Escape key disable in overview screen */
@@ -893,6 +1048,9 @@ static int FF_over(int game_status)
 
                 DEBUGMSG(debug_factoroids, "Loop exited with GAME_OVER_WON\n");
 
+                if (Opts_GetGlobalOpt(USE_TTS))
+                    T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Congratulations! You won! Final score: %d."), score);
+
                 /* set up victory message: */
                 dest_message.x = (screen->w - images[IMG_GAMEOVER_WON]->w) / 2;
                 dest_message.y = (screen->h - images[IMG_GAMEOVER_WON]->h) / 2;
@@ -914,6 +1072,9 @@ static int FF_over(int game_status)
         case FF_OVER_OTHER:
             {
                 DEBUGMSG(debug_factoroids, "Loop exited with FF_OVER_LOST or FF_OVER_OTHER\n");
+
+                if (Opts_GetGlobalOpt(USE_TTS))
+                    T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Game over! Final score: %d."), score);
 
                 /* set up GAMEOVER message: */
                 dest_message.x = (screen->w - images[IMG_GAMEOVER]->w) / 2;
@@ -967,6 +1128,7 @@ static int FF_over(int game_status)
 
 static void FF_exit_free()
 {
+    stop_factoroids_tts_announcer();
     if (asteroid)
     {
         free(asteroid);
@@ -1377,6 +1539,13 @@ int FF_destroy_asteroid(int i, float xspeed, float yspeed)
         }
 
         /* Destroy the old asteroid */
+        if (Opts_GetGlobalOpt(USE_TTS))
+        {
+            if (asteroid[i].size == 0)
+                T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, APPEND, _("Asteroid destroyed!"));
+            else
+                T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, APPEND, _("Split by %d"), num);
+        }
 
         asteroid[i].alive=0;
         return 1;
@@ -1497,6 +1666,22 @@ void game_handle_user_events(void)
                     {
                         paused = 1;
                     }
+                }
+                else if (key == SDLK_F1)
+                {
+                    factoroids_tts_switch = 2; // Announce score
+                }
+                else if (key == SDLK_F2)
+                {
+                    factoroids_tts_switch = 3; // Announce lives
+                }
+                else if (key == SDLK_F3)
+                {
+                    factoroids_tts_switch = 4; // Announce wave
+                }
+                else if (key == SDLK_F4)
+                {
+                    factoroids_tts_switch = 5; // Announce laser
                 }
 
                 if (key == CTRL_NEXT) {
@@ -1757,17 +1942,12 @@ void wait_for_input(void)
 {
     SDL_Event event = {0};
 
-    while(1)
+    while (1)
     {
-        if(!Tux_pollEvent(&event))
+        if (!Tux_pollEvent(&event))
         {
-            SDL_SetEventEnabled(SDL_EVENT_MOUSE_MOTION, false);
-            SDL_SetEventEnabled(SDL_EVENT_JOYSTICK_AXIS_MOTION, false);
-
-            SDL_WaitEvent(&event);
-
-            SDL_SetEventEnabled(SDL_EVENT_MOUSE_MOTION, true);
-            SDL_SetEventEnabled(SDL_EVENT_JOYSTICK_AXIS_MOTION, true);
+            SDL_Delay(20);
+            continue;
         }
 
         if (event.type == SDL_EVENT_QUIT)
@@ -1777,12 +1957,27 @@ void wait_for_input(void)
             break;
         }
         else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
-                event.type == SDL_EVENT_JOYSTICK_BUTTON_DOWN)
+                 event.type == SDL_EVENT_JOYSTICK_BUTTON_DOWN)
         {
             break;
         }
         else if (event.type == SDL_EVENT_KEY_DOWN)
         {
+            if (event.key.key == SDLK_F5)
+            {
+                /* F5 was handled by Tux_pollEvent (ToggleTTS).
+                   If speech is now enabled, re-announce the current screen instructions. */
+                if (Opts_GetGlobalOpt(USE_TTS))
+                {
+                    factoroids_repeat_announcement();
+                }
+                continue;
+            }
+            if (event.key.key == SDLK_F10 || event.key.key == SDLK_F11)
+            {
+                /* Function keys handled in Tux_pollEvent; do not exit prompt */
+                continue;
+            }
             if (event.key.key == SDLK_ESCAPE)
                 escape_received = 1;
             break;

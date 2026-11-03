@@ -40,6 +40,8 @@ void factoroids_show_message(char *str);
 
 void factoroids_level_message(int wave);
 
+void factoroids_repeat_announcement(void);
+
 void factoroids_level_objs_hints(char *label, char *contents, int x, int y );
 
 int tuxship_img_h(int deg);

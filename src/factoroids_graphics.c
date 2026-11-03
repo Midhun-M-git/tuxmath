@@ -647,6 +647,16 @@ void factoroids_draw_button(int img_id, enum BUTTON_TYPE type, int x, int y)
 }
 
 
+static char current_factoroids_msg[1024] = {0};
+
+void factoroids_repeat_announcement(void)
+{
+    if (current_factoroids_msg[0] != '\0')
+    {
+        T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, APPEND, "%s", current_factoroids_msg);
+    }
+}
+
 void factoroids_show_message(char* str)
 {
     SDL_Surface* s1 = NULL;
@@ -656,6 +666,13 @@ void factoroids_show_message(char* str)
 
     if(str == NULL)
         return;
+
+    snprintf(current_factoroids_msg, sizeof(current_factoroids_msg), "%s. Press any key to continue.", str);
+
+    if (Opts_GetGlobalOpt(USE_TTS))
+    {
+        T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%s", str);
+    }
 
     char_width = T4K_CharsForWidth(DEFAULT_MENU_FONT_SIZE, screen->w * 0.75);
     T4K_LineWrapInsBreaks(str, wrapped_str, char_width, 64, 64);
@@ -747,11 +764,20 @@ void factoroids_level_message(int wave)
     }
 
     nwave = (wave > PRIME_MAX_LIMIT) ? PRIME_MAX_LIMIT : wave;
+    if (nwave < 1) nwave = 1;
 
     factoroids_level_objs_hints(_("Objectives:"), _(objs_str[nwave-1]), rect.x+LVL_OBJ_X_OFFSET, rect.y+LVL_OBJ_Y_OFFSET);
     factoroids_level_objs_hints(_("Hints:"), _(hints_str[nwave-1]), rect.x+LVL_HINT_X_OFFSET, rect.y+LVL_HINT_Y_OFFSET-10);
 
     T4K_UpdateRect(screen, NULL);
+
+    snprintf(current_factoroids_msg, sizeof(current_factoroids_msg), _("Wave %d. %s. %s. Press a key to start."),
+             wave, _(objs_str[nwave-1]), _(hints_str[nwave-1]));
+
+    if (Opts_GetGlobalOpt(USE_TTS))
+    {
+        T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%s", current_factoroids_msg);
+    }
 
     wait_for_input();
 }
