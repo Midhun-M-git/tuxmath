@@ -138,6 +138,13 @@ static int bonus = -1;
 static int bonus_time = BONUS_NOTUSED;
 
 static const int prime_numbers[] = {2, 3, 5, 7, 11, 13};
+
+static int safe_prime(int w)
+{
+    if (w < 1) w = 1;
+    if (w > 6) w = 6;
+    return prime_numbers[w - 1];
+}
 static const int prime_power_limit[] = {7, 4, 3, 3, 2, 2}; //custom calibrated power limits for extra "goodness"
 
 static const int prime_next[] = {2, 2, 3, 5, 5, 7, 7, 11, 11, 11, 11, 13, 13, 2};
@@ -481,6 +488,7 @@ static void FF_handle_ship(void)
         if((timer+=FC_time_elapsed) >= 0.13f)
         {
             tuxship.hurt_count--;
+            timer = 0.0f;
             if(tuxship.hurt_count <= 0)
                 tuxship.hurt = 0;
         }
@@ -702,7 +710,7 @@ int AsteroidColl(int astW,int astH,int astX,int astY,
     x1=astX;
     y1=astY+astHq*3;
 
-    x2=astW;
+    x2=astX+astW;
     y2=astY+astHq*6;
 
     if(x>x1 && x<x2 && y>y1 && y<y2)
@@ -784,7 +792,7 @@ static void FF_add_level(void)
 
     for (i=0; i<MAX_ASTEROIDS; i++)
         asteroid[i].alive=0;
-    for (i=0; i<NUM_ASTEROIDS && NUM_ASTEROIDS<MAX_ASTEROIDS; i++){
+    for (i=0; i<NUM_ASTEROIDS && i<MAX_ASTEROIDS; i++){
         // Generate the new position, avoiding the location of the ship
         ok = 0;
         while (!ok) {
@@ -848,6 +856,10 @@ static void FF_add_level(void)
 
         factoroids_draw(asteroid, &tuxship, laser, bonus, bonus_time, digits, wave, score, num, tux_img, button_pressed);
         factoroids_level_message(wave);
+        if (Opts_GetGlobalOpt(USE_TTS))
+        {
+            T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Wave %d"), wave);
+        }
         /* Reset frame counter */
         FC_init();
         /* Escape key disable in overview screen */
@@ -1358,7 +1370,7 @@ int FF_destroy_asteroid(int i, float xspeed, float yspeed)
                             ((asteroid[i].yspeed + yspeed) / 2),
                             0,
                             rand()%360, rand()%150-75, 0,
-                            (int)(asteroid[i].b/num), (int)(asteroid[i].a/num),
+                            (int)(asteroid[i].a/num), (int)(asteroid[i].b/num),
                             0);
                 }
             }
@@ -1489,7 +1501,7 @@ void game_handle_user_events(void)
 
                 if (key == CTRL_NEXT) {
                     int n = prime_next[digits[1]*10 + digits[2]];
-                    if(n <= prime_numbers[wave - 1]) {
+                    if(n <= safe_prime(wave)) {
                         digits[2] = n % 10;
                         digits[1] = n / 10;
                         tux_pressing = 1;
@@ -1500,20 +1512,28 @@ void game_handle_user_events(void)
                         tux_pressing = 1;
                         playsound(SND_SHIELDSDOWN);
                     }
+                    if (Opts_GetGlobalOpt(USE_TTS))
+                    {
+                        T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%d", digits[1]*10 + digits[2]);
+                    }
                 }
 
                 if (key == CTRL_PREV) {
                     int n = prime_prev[digits[1]*10 + digits[2]];
-                    if(n <= prime_numbers[wave - 1]) {
+                    if(n <= safe_prime(wave)) {
                         digits[2] = n % 10;
                         digits[1] = n / 10;
                         tux_pressing = 1;
                         playsound(SND_SHIELDSDOWN);
                     } else {
-                        digits[2] = prime_numbers[wave - 1] % 10;
-                        digits[1] = prime_numbers[wave - 1] / 10;
+                        digits[2] = safe_prime(wave) % 10;
+                        digits[1] = safe_prime(wave) / 10;
                         tux_pressing = 1;
                         playsound(SND_SHIELDSDOWN);
+                    }
+                    if (Opts_GetGlobalOpt(USE_TTS))
+                    {
+                        T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%d", digits[1]*10 + digits[2]);
                     }
                 }
                 // TODO this code only deals with the first 6 primes, we'd probably want a
@@ -1544,9 +1564,13 @@ void game_handle_user_events(void)
                     if(digit == 2 || digit == 3 || digit == 5 || digit == 7) {
                         digits[2] = digit;
                     }
+                    if (Opts_GetGlobalOpt(USE_TTS))
+                    {
+                        T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%d", digits[1]*10 + digits[2]);
+                    }
                 }
                 //cancel if requested digit forms larger prime than allowed
-                if((digits[1]*10 + digits[2]) > prime_numbers[wave - 1]) {
+                if((digits[1]*10 + digits[2]) > safe_prime(wave)) {
                     digits[2] = _tmp % 10;
                     digits[1] = _tmp / 10;
                 }
@@ -1683,7 +1707,17 @@ void game_handle_user_events(void)
 
 static int game_mouse_event(SDL_Event event)
 {
-    if(event.button.button == SDL_BUTTON_LEFT) return  SDLK_RETURN;
+    if(event.button.button == SDL_BUTTON_LEFT)
+    {
+        /* Check if user clicked the on-screen Stop button in upper right corner */
+        if (images[IMG_STOP] &&
+            event.button.x >= (screen->w - images[IMG_STOP]->w) &&
+            event.button.y <= images[IMG_STOP]->h)
+        {
+            return SDLK_ESCAPE;
+        }
+        return SDLK_RETURN;
+    }
     else if(event.button.button == SDL_BUTTON_MIDDLE) return SDLK_LSHIFT;
     else if(event.button.button == SDL_BUTTON_RIGHT) return SDLK_UP;
     else return SDLK_UNKNOWN;
@@ -1703,10 +1737,14 @@ static int check_exit_conditions(void)
     }
     if(tuxship.lives<=0)
     {
+        if (Opts_GetGlobalOpt(USE_TTS))
+            T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Game Over!"));
         return FF_OVER_LOST;
     }
     if(wave > 6 )
     {
+        if (Opts_GetGlobalOpt(USE_TTS))
+            T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, _("Congratulations! You won!"));
         return FF_OVER_WON;
     }
 

@@ -271,7 +271,19 @@ void showWinners(int* winners, int num)
     SDL_FillSurfaceRect(screen, NULL, 0);
     draw_text(text, center);
     T4K_UpdateRect(screen, NULL);
-    T4K_WaitForEvent(SDL_EVENT_KEY_DOWN | SDL_EVENT_MOUSE_BUTTON_DOWN);
+    
+    // Wait for keypress, mouse click, or window close:
+    while (1)
+    {
+        while (Tux_pollEvent(&evt))
+        {
+            if (evt.type == SDL_EVENT_QUIT || evt.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+                return;
+            if (evt.type == SDL_EVENT_KEY_DOWN || evt.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+                return;
+        }
+        SDL_Delay(20);
+    }
 }
 
 int initMP()

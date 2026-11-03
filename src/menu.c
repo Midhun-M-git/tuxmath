@@ -182,14 +182,18 @@ int handle_activity(int act, int param)
             break;
 
         case RUN_HELP:
-            Opts_SetHelpMode(1);
-            Opts_SetDemoMode(0);
-            if (Opts_GetGlobalOpt(MENU_MUSIC))  //Turn menu music off for game
-            {T4K_AudioMusicUnload();}
-            comets_game(local_game);
-            if (Opts_GetGlobalOpt(MENU_MUSIC)) //Turn menu music back on
-                T4K_AudioMusicLoad( "tuxi.ogg", -1 );
-            Opts_SetHelpMode(0);
+            {
+                Opts_SetHelpMode(1);
+                Opts_SetDemoMode(0);
+                if (Opts_GetGlobalOpt(MENU_MUSIC))  //Turn menu music off for game
+                {T4K_AudioMusicUnload();}
+                int help_status = comets_game(local_game);
+                if (Opts_GetGlobalOpt(MENU_MUSIC)) //Turn menu music back on
+                    T4K_AudioMusicLoad( "tuxi.ogg", -1 );
+                Opts_SetHelpMode(0);
+                if (help_status == GAME_OVER_WINDOW_CLOSE)
+                    return QUIT;
+            }
             break;
 
         case RUN_FACTORS:
@@ -204,9 +208,11 @@ int handle_activity(int act, int param)
             if(read_named_config_file(local_game, "demo"))
             {
                 T4K_AudioMusicUnload();
-                comets_game(local_game);
+                int demo_status = comets_game(local_game);
                 if (Opts_GetGlobalOpt(MENU_MUSIC))
                     T4K_AudioMusicLoad( "tuxi.ogg", -1 );
+                if (demo_status == GAME_OVER_WINDOW_CLOSE)
+                    return QUIT;
             }
             else
                 fprintf(stderr, "\nCould not find demo config file\n");
@@ -277,8 +283,11 @@ int run_academy(void)
             {T4K_AudioMusicUnload();}
 
             T4K_OnResolutionSwitch(NULL);
-            comets_game(local_game);
+            int acad_status = comets_game(local_game);
             T4K_OnResolutionSwitch(&HandleTitleScreenResSwitch);
+
+            if (acad_status == GAME_OVER_WINDOW_CLOSE)
+                return QUIT;
 
             /* If successful, display Gold Star for this lesson! */
             if (MC_MissionAccomplished(local_game))
@@ -328,8 +337,10 @@ int run_arcade(int choice)
         if (read_named_config_file(local_game, arcade_config_files[choice]))
         {
             T4K_AudioMusicUnload();
-            comets_game(local_game);
+            int arcade_status = comets_game(local_game);
             RenderTitleScreen();
+            if (arcade_status == GAME_OVER_WINDOW_CLOSE)
+                return QUIT;
             if (Opts_GetGlobalOpt(MENU_MUSIC))
                 T4K_AudioMusicLoad( "tuxi.ogg", -1 );
             /* See if player made high score list!                        */
@@ -372,11 +383,14 @@ int run_custom_game(void)
         if (Opts_GetGlobalOpt(MENU_MUSIC))
             T4K_AudioMusicUnload();
 
-        comets_game(local_game);
+        int custom_status = comets_game(local_game);
         write_user_config_file(local_game);
 
         if (Opts_GetGlobalOpt(MENU_MUSIC))
             T4K_AudioMusicLoad( "tuxi.ogg", -1 );
+
+        if (custom_status == GAME_OVER_WINDOW_CLOSE)
+            return QUIT;
     }
 
     return 0;

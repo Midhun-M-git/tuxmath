@@ -298,7 +298,7 @@ int comets_game(MC_MathGame* mgame)
     if (Opts_HelpMode()) {
         comets_handle_help();
         comets_cleanup();
-        return GAME_OVER_OTHER;
+        return (user_quit_received == GAME_OVER_WINDOW_CLOSE) ? GAME_OVER_WINDOW_CLOSE : GAME_OVER_OTHER;
     }
     
     //Calling tts_announcer
@@ -997,6 +997,11 @@ int help_renderframe_exit(void)
     comets_handle_steam();
     comets_handle_extra_life();
     comets_draw();
+    if (paused)
+    {
+        user_quit_received = GAME_OVER_ESCAPE;
+        paused = 0;
+    }
     comets_status = check_exit_conditions();
     
     if (comets_status != GAME_IN_PROGRESS)
@@ -2866,8 +2871,7 @@ void comets_mouse_event(SDL_Event event)
             (event.button.x >= (screen->w - images[IMG_STOP]->w)) &&
             (event.button.y <= images[IMG_STOP]->h))
     {
-        key = SDLK_ESCAPE;
-        comets_key_event(key, mod);
+        user_quit_received = GAME_OVER_ESCAPE;
         return;
     }
 
@@ -3045,8 +3049,12 @@ void comets_key_event(SDL_Keycode key, SDL_Keymod mod)
 
     if (key == SDLK_ESCAPE)
     {
-        /* [ESC]: Pause the game! If pause is disallowed, then quit */
-        if (Opts_AllowPause())
+        /* [ESC]: In Help mode, always exit immediately. Otherwise pause (or quit if disallowed). */
+        if (Opts_HelpMode())
+        {
+            user_quit_received = GAME_OVER_ESCAPE;
+        }
+        else if (Opts_AllowPause())
         {
             paused = 1;
         }

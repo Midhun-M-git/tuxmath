@@ -82,6 +82,18 @@ static int laser_coeffs[][3] = {
     {18, 0, 18} // 13
 };
 
+static int get_laser_coeff(int n, int rgb)
+{
+    static const int default_laser[3] = {18, 18, 18};
+    int total = (int)(sizeof(laser_coeffs) / sizeof(laser_coeffs[0]));
+    if (n >= 0 && n < total)
+    {
+        if (laser_coeffs[n][0] != 0 || laser_coeffs[n][1] != 0 || laser_coeffs[n][2] != 0)
+            return laser_coeffs[n][rgb];
+    }
+    return default_laser[rgb];
+}
+
 int bonus_img_ids[] = {
     IMG_BONUS_CLOAKING, IMG_BONUS_FORCEFIELD, IMG_BONUS_POWERBOMB
 };
@@ -172,6 +184,7 @@ int factoroids_init_graphics(void)
 
     /* Create zoomed and scaled ship image for "lives" counter */
     IMG_lives_ship = rotozoomSurface(images[IMG_SHIP_CLOAKED], 90, zoom * 0.7, 1);
+    return 1;
 }
 
 
@@ -303,7 +316,7 @@ void factoroids_draw(asteroid_type *asteroid, tuxship_type *tuxship, FF_laser_ty
                 laser[i].desty += tuxship->yspeed*FC_time_elapsed;
 
                 draw_line(screen, laser[i].x, laser[i].y, laser[i].destx, laser[i].desty,
-                        laser[i].count*laser_coeffs[laser[i].n][0], laser[i].count*laser_coeffs[laser[i].n][1], laser[i].count*laser_coeffs[laser[i].n][2]);
+                        laser[i].count*get_laser_coeff(laser[i].n, 0), laser[i].count*get_laser_coeff(laser[i].n, 1), laser[i].count*get_laser_coeff(laser[i].n, 2));
 
                 laser[i].count -= 15*FC_time_elapsed;
             } else if (laser[i].count <= 0)
@@ -409,10 +422,13 @@ void factoroids_draw(asteroid_type *asteroid, tuxship_type *tuxship, FF_laser_ty
             dest.y = asteroid[i].ydead;
             SDL_BlitSurface(images[IMG_STEAM1+asteroid[i].countdead], NULL, screen, &dest);
             if(bonus == TB_POWERBOMB && bonus_time > 0)
+            {
+                int lnum = digits[1]*10+digits[2];
                 draw_line(screen, asteroid[i].x, asteroid[i].y, tuxship->x, tuxship->y,
-                        (5 - asteroid[i].countdead)*4*laser_coeffs[digits[1]*10+digits[2]][0],
-                        (5 - asteroid[i].countdead)*4*laser_coeffs[digits[1]*10+digits[2]][1],
-                        (5 - asteroid[i].countdead)*4*laser_coeffs[digits[1]*10+digits[2]][2]);
+                        (5 - asteroid[i].countdead)*4*get_laser_coeff(lnum, 0),
+                        (5 - asteroid[i].countdead)*4*get_laser_coeff(lnum, 1),
+                        (5 - asteroid[i].countdead)*4*get_laser_coeff(lnum, 2));
+            }
         }
 
 
