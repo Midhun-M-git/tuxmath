@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-latest
 
     steps:
     - name: Install Dependencies
@@ -26,7 +26,7 @@ jobs:
     - name: Checkout t4kcommon
       uses: actions/checkout@v4
       with:
-        repository: Midhun-M-git/t4kcommon
+        repository: ${{ github.repository_owner }}/t4kcommon
         ref: master
         path: t4kcommon
 

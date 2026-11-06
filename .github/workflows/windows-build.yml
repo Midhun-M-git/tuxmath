@@ -43,10 +43,10 @@ jobs:
       with:
         path: tuxmath
 
-    - name: Checkout t4kcommon (Midhun-M-git/t4kcommon)
+    - name: Checkout t4kcommon
       uses: actions/checkout@v4
       with:
-        repository: Midhun-M-git/t4kcommon
+        repository: ${{ github.repository_owner }}/t4kcommon
         ref: master
         path: t4kcommon
 
