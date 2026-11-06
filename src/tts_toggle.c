@@ -9,6 +9,7 @@
 /* These functions are defined in comets.c but have no shared header */
 extern void stop_tts_announcer_thread(void);
 extern void start_tts_announcer_thread(void);
+extern int comets_is_in_progress(void);
 
 
 void ToggleTTS(void)
@@ -16,18 +17,13 @@ void ToggleTTS(void)
 #if defined(_WIN32) || defined(WIN32)
     static Uint32 last_toggle_time = 0;
     Uint32 current_time = SDL_GetTicks();
-    if (current_time - last_toggle_time < 200)
+    if (current_time - last_toggle_time < 300)
         return;
     last_toggle_time = current_time;
 #endif
 
     if (Opts_GetGlobalOpt(USE_TTS) == 1)
     {
-        /* Stop the in-game TTS announcer thread if it is running */
-        extern SDL_Thread* tts_announcer_thread;
-        if (tts_announcer_thread)
-            stop_tts_announcer_thread();
-
         /* Announce BEFORE turning off so the user can hear the confirmation */
         T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT,
                      _("Text to speech is disabled"));
@@ -42,6 +38,9 @@ void ToggleTTS(void)
 
         T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT,
                      _("Text to speech is enabled"));
+
+        if (comets_is_in_progress())
+            start_tts_announcer_thread();
     }
 
     /* Persist the new preference to the user config file */
@@ -74,22 +73,35 @@ int Tux_pollEvent(SDL_Event *event)
         if (event->type == SDL_EVENT_KEY_DOWN)
         {
             if (event->key.key == SDLK_F5)
-                ToggleTTS();
+            {
+                if (!event->key.repeat)
+                    ToggleTTS();
+            }
             else if (event->key.key == SDLK_F10)
             {
-                T4K_SwitchScreenMode();
-                screen = T4K_GetScreen();
-                if (T4K_GetWindow())
+                if (!event->key.repeat)
                 {
-                    Uint32 wflags = SDL_GetWindowFlags(T4K_GetWindow());
-                    Opts_SetGlobalOpt(FULLSCREEN, (wflags & SDL_WINDOW_FULLSCREEN) != 0);
-                    write_user_config_file(local_game);
+                    static Uint32 last_f10_time = 0;
+                    Uint32 now = SDL_GetTicks();
+                    if (now - last_f10_time >= 400)
+                    {
+                        last_f10_time = now;
+                        T4K_SwitchScreenMode();
+                        screen = T4K_GetScreen();
+                        if (T4K_GetWindow())
+                        {
+                            Uint32 wflags = SDL_GetWindowFlags(T4K_GetWindow());
+                            Opts_SetGlobalOpt(FULLSCREEN, (wflags & SDL_WINDOW_FULLSCREEN) != 0);
+                            write_user_config_file(local_game);
+                        }
+                    }
                 }
             }
 #ifndef NOSOUND
             else if (event->key.key == SDLK_F11)
             {
-                T4K_AudioToggle();
+                if (!event->key.repeat)
+                    T4K_AudioToggle();
             }
 #endif
         }

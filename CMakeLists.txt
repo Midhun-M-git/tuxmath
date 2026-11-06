@@ -14,7 +14,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 set(PACKAGE_NAME    "tuxmath")
-set(TUXMATH_VERSION "3.0.5")
+set(TUXMATH_VERSION "3.0.6")
 set(TUXMATHADMIN_VERSION "0.1.1")
 set(APP_NAME        "TuxMath")
 

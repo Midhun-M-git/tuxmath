@@ -699,6 +699,7 @@ void comets_cleanup(void)
     /* Free dynamically-allocated items */
     free_on_exit();
 
+    comets_status = 0;
     DEBUGMSG(debug_game, "Leaving comets_cleanup():\n");
 }
 
@@ -1111,9 +1112,6 @@ void comets_handle_user_events(void)
 
     while (Tux_pollEvent(&event) > 0)
     {
-
-        T4K_HandleStdEvents(&event);
-
         if (event.type == SDL_EVENT_QUIT)
         {
             user_quit_received = GAME_OVER_WINDOW_CLOSE;
@@ -4186,7 +4184,15 @@ int tts_announcer(void *unused)
 		{
 			goto end;
 		}
-		else if(tts_announcer_switch == 2)
+
+		if (!Opts_GetGlobalOpt(USE_TTS))
+		{
+			unduck_music();
+			SDL_Delay(200);
+			continue;
+		}
+
+		if(tts_announcer_switch == 2)
 		{
 #ifdef HAVE_LIBSDL_NET
 			if (Opts_LanMode())
@@ -4318,7 +4324,10 @@ SDL_Thread *tts_announcer_thread = NULL;
 void start_tts_announcer_thread()
 {
 	if (!tts_announcer_thread)
+	{
+		tts_announcer_switch = 1;
 		tts_announcer_thread = SDL_CreateThread(tts_announcer, "tts_announcer", NULL);
+	}
 }
 
 void stop_tts_announcer_thread()
@@ -4331,4 +4340,9 @@ void stop_tts_announcer_thread()
 		SDL_WaitThread(tts_announcer_thread, NULL);
 		tts_announcer_thread = NULL;
 	}
+}
+
+int comets_is_in_progress(void)
+{
+	return (comets_status == GAME_IN_PROGRESS && !paused);
 }

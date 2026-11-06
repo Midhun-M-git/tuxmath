@@ -1596,7 +1596,6 @@ void game_handle_user_events(void)
 
     while (Tux_pollEvent(&event) > 0)
     {
-        T4K_HandleStdEvents(&event);
         if (event.type == SDL_EVENT_QUIT)
         {
             SDL_quit_received = 1;
